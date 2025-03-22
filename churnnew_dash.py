@@ -1,5 +1,7 @@
 # Standalone Code: churnnew_dash.py (Integrated Solution with Heatmap and Security Placeholders)
 
+# Standalone Code: churnnew_dash.py (Integrated Solution with Heatmap and Security Placeholders)
+
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -47,18 +49,13 @@ def load_data():
     })
 
     # --- Additional Data Cleaning Steps ---
-    # Drop duplicates
     data.drop_duplicates(inplace=True)
-
-    # IQR Outlier Removal for 'monthly_charges'
     Q1 = data['monthly_charges'].quantile(0.25)
     Q3 = data['monthly_charges'].quantile(0.75)
     IQR = Q3 - Q1
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
     data = data[(data['monthly_charges'] >= lower_bound) & (data['monthly_charges'] <= upper_bound)]
-
-    # Logical Consistency Check: Adjust total_charges if misaligned
     expected_total = data['monthly_charges'] * data['tenure']
     data['total_charges'] = np.where(
         abs(data['total_charges'] - expected_total) > 50,
@@ -70,7 +67,6 @@ def load_data():
 
 data = load_data()
 
-# Preprocess Data
 def preprocess_data(data):
     numerical_features = ['monthly_charges', 'tenure', 'total_charges']
     categorical_features = ['contract_type', 'payment_method']
@@ -99,7 +95,6 @@ def preprocess_data(data):
 X, y, preprocessor, numerical_features, categorical_features = preprocess_data(data)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Build and train deep learning model
 def build_model(input_shape):
     model = Sequential()
     model.add(Input(shape=(input_shape,)))
@@ -124,14 +119,10 @@ model.save('churn_model.h5')
 
 st.title("Customer Churn Prediction Dashboard")
 
-# Authentication Placeholder
-# In production, enable MFA on GitHub and Streamlit Cloud and use Role-Based Access Control (RBAC).
-
 tabs = st.tabs(["Predict Churn", "Data Analysis", "Reports"])
 
 with tabs[0]:
     st.header("Predict Customer Churn")
-
     tenure = st.number_input("Tenure (months)", min_value=1, max_value=72, value=24)
     monthly_charges = st.number_input("Monthly Charges ($)", min_value=20.0, max_value=120.0, value=50.0)
     total_charges = st.number_input("Total Charges ($)", min_value=0.0, max_value=10000.0, value=1200.0)
@@ -194,15 +185,16 @@ with tabs[2]:
 
         st.subheader("Feature Importance using SHAP")
         try:
-            # Construct DataFrame with correct column names for SHAP
             ohe_columns = list(preprocessor.named_transformers_['cat']['onehot'].get_feature_names_out(categorical_features))
             feature_names = numerical_features + ohe_columns + ['paperless_billing', 'has_dependents']
             X_test_df = pd.DataFrame(X_test, columns=feature_names)
+
             background = X_test_df.sample(n=100, random_state=42)
-            explainer = shap.DeepExplainer(model, background.values)
-            shap_values = explainer.shap_values(X_test_df.values)
+            explainer = shap.KernelExplainer(lambda x: model.predict(x).flatten(), background)
+            shap_values = explainer.shap_values(background, nsamples=100)
+
             fig, ax = plt.subplots()
-            shap.summary_plot(shap_values[0], X_test_df, show=False)
+            shap.summary_plot(shap_values, background, show=False)
             st.pyplot(fig)
         except Exception as e:
             st.warning(f"SHAP failed to generate: {e}")
@@ -214,4 +206,6 @@ with tabs[2]:
 # This application assumes the use of GitHub private repositories, SSL-enabled Streamlit Cloud deployment,
 # Role-Based Access Control (RBAC), Multi-Factor Authentication (MFA), and AES-256 encryption for production environments.
 # Ensure compliance with GDPR and CCPA for future use with real-world datasets.
+
+
 
