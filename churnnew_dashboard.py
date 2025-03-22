@@ -114,17 +114,14 @@ def build_model(input_shape):
 model = build_model(X_train.shape[1])
 early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
-# Wrap model training in a try-except block to catch pop errors
 try:
     model.fit(X_train, y_train, epochs=50, validation_split=0.2, callbacks=[early_stop], verbose=0)
 except Exception as e:
     st.error(f"Model training failed: {e}")
 
-# Save model and preprocessor
 joblib.dump(preprocessor, 'preprocessor.pkl')
 model.save('churn_model.h5')
 
-# Streamlit App
 st.title("Customer Churn Prediction Dashboard")
 
 # Authentication Placeholder
@@ -132,7 +129,6 @@ st.title("Customer Churn Prediction Dashboard")
 
 tabs = st.tabs(["Predict Churn", "Data Analysis", "Reports"])
 
-# Predict Churn Tab
 with tabs[0]:
     st.header("Predict Customer Churn")
 
@@ -163,7 +159,6 @@ with tabs[0]:
 
         st.success(f"Predicted Churn Probability: {prediction[0][0]:.2%}")
 
-# Data Analysis Tab
 with tabs[1]:
     st.header("Interactive Data Analysis")
     st.subheader("Dataset Overview")
@@ -186,7 +181,6 @@ with tabs[1]:
     sns.heatmap(correlation, annot=True, cmap='coolwarm', ax=ax)
     st.pyplot(fig)
 
-# Reports Tab
 with tabs[2]:
     st.header("Web-Based Report Generation")
     if st.button("Generate Report"):
@@ -199,11 +193,15 @@ with tabs[2]:
         st.write("ROC-AUC:", roc_auc_score(y_test, y_pred))
 
         st.subheader("Feature Importance using SHAP")
-        explainer = shap.Explainer(model, X_test)
-        shap_values = explainer(X_test)
-        fig, ax = plt.subplots()
-        shap.plots.beeswarm(shap_values, max_display=10, show=False)
-        st.pyplot(fig)
+        try:
+            background = X_train[np.random.choice(X_train.shape[0], 100, replace=False)]
+            explainer = shap.DeepExplainer(model, background)
+            shap_values = explainer.shap_values(X_test)
+            fig, ax = plt.subplots()
+            shap.summary_plot(shap_values[0], X_test, show=False)
+            st.pyplot(fig)
+        except Exception as e:
+            st.warning(f"SHAP failed to generate: {e}")
 
         st.subheader("Dataset Statistics")
         st.dataframe(data.describe())
@@ -212,3 +210,5 @@ with tabs[2]:
 # This application assumes the use of GitHub private repositories, SSL-enabled Streamlit Cloud deployment,
 # Role-Based Access Control (RBAC), Multi-Factor Authentication (MFA), and AES-256 encryption for production environments.
 # Ensure compliance with GDPR and CCPA for future use with real-world datasets.
+
+
