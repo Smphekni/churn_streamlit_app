@@ -94,9 +94,9 @@ def preprocess_data(data):
     y = data['churn']
 
     X_processed = preprocessor.fit_transform(X)
-    return X_processed, np.array(y), preprocessor
+    return X_processed, np.array(y), preprocessor, numerical_features, categorical_features
 
-X, y, preprocessor = preprocess_data(data)
+X, y, preprocessor, numerical_features, categorical_features = preprocess_data(data)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # Build and train deep learning model
@@ -194,11 +194,15 @@ with tabs[2]:
 
         st.subheader("Feature Importance using SHAP")
         try:
-            background = X_train[np.random.choice(X_train.shape[0], 100, replace=False)]
-            explainer = shap.DeepExplainer(model, background)
-            shap_values = explainer.shap_values(X_test)
+            # Construct DataFrame with correct column names for SHAP
+            ohe_columns = list(preprocessor.named_transformers_['cat']['onehot'].get_feature_names_out(categorical_features))
+            feature_names = numerical_features + ohe_columns + ['paperless_billing', 'has_dependents']
+            X_test_df = pd.DataFrame(X_test, columns=feature_names)
+            background = X_test_df.sample(n=100, random_state=42)
+            explainer = shap.DeepExplainer(model, background.values)
+            shap_values = explainer.shap_values(X_test_df.values)
             fig, ax = plt.subplots()
-            shap.summary_plot(shap_values[0], X_test, show=False)
+            shap.summary_plot(shap_values[0], X_test_df, show=False)
             st.pyplot(fig)
         except Exception as e:
             st.warning(f"SHAP failed to generate: {e}")
@@ -210,5 +214,4 @@ with tabs[2]:
 # This application assumes the use of GitHub private repositories, SSL-enabled Streamlit Cloud deployment,
 # Role-Based Access Control (RBAC), Multi-Factor Authentication (MFA), and AES-256 encryption for production environments.
 # Ensure compliance with GDPR and CCPA for future use with real-world datasets.
-
 
